@@ -226,7 +226,7 @@ func (b *OrderBot) getMainKeyboard() tgbotapi.ReplyKeyboardMarkup {
 
 func main() {
     // Получаем токен бота
-    botToken := ""
+    botToken := "8409546502:AAHMu4vLc03J-pTXyzcbyvP9TikCVTorllc"
     if botToken == "" {
         log.Fatal("TELEGRAM_BOT_TOKEN environment variable is required")
     }
