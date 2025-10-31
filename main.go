@@ -256,13 +256,13 @@ func (b *OrderBot) getMainKeyboard() tgbotapi.ReplyKeyboardMarkup {
 
 func main() {
     // Получаем токен бота из переменных окружения
-    botToken := os.Getenv("TELEGRAM_BOT_TOKEN")
+    botToken := os.Getenv("8409546502:AAHMu4vLc03J-pTXyzcbyvP9TikCVTorllc")
     if botToken == "" {
         log.Fatal("TELEGRAM_BOT_TOKEN environment variable is required")
     }
 
     // ID диспетчера (можно получить через @userinfobot)
-    dispatcherIDStr := os.Getenv("DISPATCHER_CHAT_ID")
+    dispatcherIDStr := os.Getenv("7728044697")
     var dispatcherID int64 = 0
     if dispatcherIDStr != "" {
         var err error
