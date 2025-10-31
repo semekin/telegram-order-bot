@@ -1,12 +1,9 @@
-go
 package main
 
 import (
     "fmt"
     "log"
-    "os"
     "strconv"
-    "strings"
 
     "telegram-order-bot/orders"
 
@@ -18,16 +15,14 @@ type BotState int
 const (
     StateStart BotState = iota
     StateWaitingForProduct
-    StateWaitingForQuantity
     StateWaitingForAddress
     StateWaitingForPhone
 )
 
 type UserSession struct {
-    State    BotState
-    Product  string
-    Quantity int
-    Address  string
+    State   BotState
+    Product string
+    Address string
 }
 
 type OrderBot struct {
@@ -68,7 +63,6 @@ func (b *OrderBot) Start() {
 
 func (b *OrderBot) handleMessage(message *tgbotapi.Message) {
     userID := message.Chat.ID
-    text := message.Text
 
     // Инициализация сессии пользователя
     if b.sessions[userID] == nil {
@@ -82,8 +76,6 @@ func (b *OrderBot) handleMessage(message *tgbotapi.Message) {
         b.handleStartState(message, session)
     case StateWaitingForProduct:
         b.handleProductInput(message, session)
-    case StateWaitingForQuantity:
-        b.handleQuantityInput(message, session)
     case StateWaitingForAddress:
         b.handleAddressInput(message, session)
     case StateWaitingForPhone:
@@ -100,12 +92,8 @@ func (b *OrderBot) handleStartState(message *tgbotapi.Message, session *UserSess
     case "🛒 Сделать заказ":
         session.State = StateWaitingForProduct
         b.sendMessage(message.Chat.ID, 
-            "Что вы хотите заказать? Опишите продукт:\n\n" +
-            "• Пицца Маргарита - 550₽\n" +
-            "• Пицца Пепперони - 650₽\n" +
-            "• Бургер Классический - 350₽\n" +
-            "• Салат Цезарь - 300₽\n" +
-            "• Напиток Coca-Cola - 150₽")
+            "Что вы хотите заказать? Опишите полностью ваш заказ:\n\n" +
+            "Пример: 2 балтики, 1 сухарики, 1 чипсы")
     default:
         b.sendWelcomeMessage(message.Chat.ID)
     }
@@ -113,19 +101,6 @@ func (b *OrderBot) handleStartState(message *tgbotapi.Message, session *UserSess
 
 func (b *OrderBot) handleProductInput(message *tgbotapi.Message, session *UserSession) {
     session.Product = message.Text
-    session.State = StateWaitingForQuantity
-    
-    b.sendMessage(message.Chat.ID, "Введите количество:")
-}
-
-func (b *OrderBot) handleQuantityInput(message *tgbotapi.Message, session *UserSession) {
-    quantity, err := strconv.Atoi(message.Text)
-    if err != nil || quantity <= 0 {
-        b.sendMessage(message.Chat.ID, "Пожалуйста, введите корректное количество (число больше 0):")
-        return
-    }
-
-    session.Quantity = quantity
     session.State = StateWaitingForAddress
     
     b.sendMessage(message.Chat.ID, "Введите адрес доставки:")
@@ -144,7 +119,10 @@ func (b *OrderBot) handlePhoneInput(message *tgbotapi.Message, session *UserSess
     // Создаем заказ
     username := message.From.UserName
     if username == "" {
-        username = message.From.FirstName + " " + message.From.LastName
+        username = message.From.FirstName
+        if message.From.LastName != "" {
+            username += " " + message.From.LastName
+        }
     }
     
     order := b.orderManager.CreateOrder(
@@ -153,7 +131,6 @@ func (b *OrderBot) handlePhoneInput(message *tgbotapi.Message, session *UserSess
         session.Product,
         session.Address,
         phone,
-        session.Quantity,
     )
     
     // Отправляем уведомление диспетчеру
@@ -180,24 +157,19 @@ func (b *OrderBot) sendWelcomeMessage(chatID int64) {
 func (b *OrderBot) sendPriceList(chatID int64) {
     text := `📋 Наш прайс-лист:
 
-🍕 Пиццы:
-• Маргарита - 550₽
-• Пепперони - 650₽
-• Гавайская - 600₽
-
-🍔 Бургеры:
-• Классический - 350₽
-• Чизбургер - 400₽
-• Двойной - 500₽
-
-🥗 Салаты:
-• Цезарь - 300₽
-• Греческий - 280₽
+🍕 Закусон:
+• Чипсы - 150₽
+• Сухарики - 150₽
 
 🥤 Напитки:
 • Coca-Cola - 150₽
 • Fanta - 150₽
 • Вода - 100₽
+
+🍺 Алкоголь:
+• Балтика - 150₽
+• Эллей - 150₽
+• Корона Бочка - 100₽
 
 💵 Минимальный заказ: 500₽
 🚚 Доставка: бесплатно от 1000₽`
@@ -209,13 +181,12 @@ func (b *OrderBot) sendOrderConfirmation(chatID int64, order orders.Order) {
     text := fmt.Sprintf(`✅ Ваш заказ принят!
 
 Номер заказа: %s
-Продукт: %s
-Количество: %d
+Заказ: %s
 Адрес: %s
 Телефон: %s
 
 Ваш заказ направлен диспетчеру. С вами свяжутся в ближайшее время для подтверждения.`,
-        order.ID, order.Product, order.Quantity, order.Address, order.Phone)
+        order.ID, order.Product, order.Address, order.Phone)
 
     b.sendMessage(chatID, text)
 }
@@ -229,12 +200,11 @@ func (b *OrderBot) notifyDispatcher(order orders.Order) {
 
 Номер: %s
 Клиент: @%s
-Товар: %s
-Количество: %d
+Заказ: %s
 Адрес: %s
 Телефон: %s
 Время: %s`,
-        order.ID, order.Username, order.Product, order.Quantity, 
+        order.ID, order.Username, order.Product, 
         order.Address, order.Phone, order.CreatedAt.Format("15:04 02.01.2006"))
 
     b.sendMessage(b.dispatcherID, text)
@@ -255,20 +225,22 @@ func (b *OrderBot) getMainKeyboard() tgbotapi.ReplyKeyboardMarkup {
 }
 
 func main() {
-    // Получаем токен бота из переменных окружения
-    botToken := os.Getenv("8409546502:AAHMu4vLc03J-pTXyzcbyvP9TikCVTorllc")
+    // Получаем токен бота
+    botToken := ""
     if botToken == "" {
         log.Fatal("TELEGRAM_BOT_TOKEN environment variable is required")
     }
 
-    // ID диспетчера (можно получить через @userinfobot)
-    dispatcherIDStr := os.Getenv("7728044697")
+    // ID диспетчера
+    dispatcherIDStr := "1155607428"
     var dispatcherID int64 = 0
     if dispatcherIDStr != "" {
         var err error
         dispatcherID, err = strconv.ParseInt(dispatcherIDStr, 10, 64)
         if err != nil {
             log.Printf("Invalid dispatcher ID: %v", err)
+        } else {
+            log.Printf("Dispatcher notifications enabled for chat ID: %d", dispatcherID)
         }
     }
 

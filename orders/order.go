@@ -9,7 +9,6 @@ type Order struct {
     UserID      int64     `json:"user_id"`
     Username    string    `json:"username"`
     Product     string    `json:"product"`
-    Quantity    int       `json:"quantity"`
     Address     string    `json:"address"`
     Phone       string    `json:"phone"`
     CreatedAt   time.Time `json:"created_at"`
@@ -26,13 +25,12 @@ func NewOrderManager() *OrderManager {
     }
 }
 
-func (om *OrderManager) CreateOrder(userID int64, username, product, address, phone string, quantity int) Order {
+func (om *OrderManager) CreateOrder(userID int64, username, product, address, phone string) Order {
     order := Order{
         ID:        generateOrderID(),
         UserID:    userID,
         Username:  username,
         Product:   product,
-        Quantity:  quantity,
         Address:   address,
         Phone:     phone,
         CreatedAt: time.Now(),
